@@ -3,7 +3,7 @@
 These measurements characterize the production kernel on synthetic snapshots.
 They exclude perception, host scene traversal, snapshot gathering/copying, animation
 and rendering. They are observations on one desktop, not a frame-budget guarantee
-or a comparison against other AI systems.
+or a comparison against other attention-selection systems.
 
 ## Reproduce
 
@@ -26,9 +26,8 @@ pairing checks make the input comparisons reproducible; wall-clock timings vary.
 
 ## Recorded environment
 
-The following results were measured on 2026-10-16 with the same attention
-implementation and benchmark harness distributed here; subsequent release
-preparation changes only version metadata, comments and build packaging.
+The following results were measured on 2026-10-16 using the attention implementation
+and benchmark harness in this repository.
 
 | Component | Recorded configuration |
 |---|---|
@@ -39,10 +38,9 @@ preparation changes only version metadata, comments and build packaging.
 | Build tools | CMake 3.31.6-msvc6, Ninja 1.12.1 |
 | Flags | `/O2 /Ob2 /DNDEBUG`, `/W4 /WX /permissive- /utf-8`; no LTO/IPO |
 
-Three independent processes each ran five repetitions of the matrix. These are
-the corrected measurements with strictly paired variant inputs, checked against
-the recorded output of all three processes. No private report or host project is
-needed to run the distributed harness.
+Three independent processes each ran five repetitions of the matrix with strictly
+paired variant inputs. The tables below summarize the recorded output of those
+processes; the harness checks input pairing as part of each run.
 
 ## Method and workloads
 

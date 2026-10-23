@@ -84,7 +84,7 @@ void C01_EmptyCandidateList()
     CHECK(h.trace.candidates.empty() && h.trace.leading == 0);
     CHECK(h.memory.current == 0 && h.memory.hasStepped && h.memory.lastStepTime == 0);
 
-    // With a previous selection, an empty list clears it. the reason names the
+    // With a previous selection, an empty list clears it. The reason names the
     // absent current target rather than the empty list.
     const CandidateSnapshot one[]{PointAt(7, 5, 0, 1.f, 1.f)};
     CHECK(h.Run(Observer(), one, profile, 10) == StepStatus::Ok);

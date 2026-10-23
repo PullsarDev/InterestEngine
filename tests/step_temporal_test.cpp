@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Temporal-policy scenarios: hysteresis, dwell, switching, override and invalid targets.
+// Coverage includes dwell boundaries, invalidation during dwell, exact ties,
+// explicit time and deterministic replay over generated multi-step streams.
+// Most cases use test::TemporalProfile (acquire 0.5, release 0.375, switch margin
+// 0.125, override margin 0.25, dwell 500 ms) with test::Scored candidates, whose raw
+// score equals the supplied value. These dyadic values make threshold and margin
+// boundary comparisons exact.
 
 #include "test_support.hpp"
 

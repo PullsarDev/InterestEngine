@@ -89,7 +89,7 @@ rejection precedence and ownership contracts.
 
 Requirements: CMake 3.20 or newer, a C++20 compiler and its standard library. The
 validation matrix covers Windows x64 MSVC (Visual Studio 2022) and Linux x86-64
-GCC/Clang, in Debug and Release, plus Clang ASan/UBSan. The historical performance
+GCC/Clang, in Debug and Release, plus Clang ASan/UBSan. The recorded performance
 baseline uses MSVC 19.38. This is a tested matrix, not a promise that every compiler
 version or platform is supported. macOS, ARM and other architectures are unverified.
 

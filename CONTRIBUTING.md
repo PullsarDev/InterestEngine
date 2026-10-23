@@ -30,6 +30,17 @@ Tests use dependency-free checks that remain active under `NDEBUG`. The suites c
 | Sustained churn, exact replay, permutations and failed-step atomicity | `step_c18_test.cpp` |
 | Geometry transforms, finite extremes and time translation/decay | `step_property_test.cpp` |
 
+In test output, **B1** is stateless selection of the leading candidate at or above
+the acquisition threshold. **B2** uses the same contextual scores with the kernel's
+temporal policy; novelty is disabled for these baseline comparisons. B1 is read
+from the Step trace so the comparison uses identical scores. Ablations change one
+temporal mechanism through profile parameters.
+
+Labels such as `C07c`, `C12` and `C18` are stable scenario identifiers: preference
+formula comparison, update-rate comparison and sustained churn, respectively.
+Letter suffixes distinguish variants. The test functions and nearby comments
+describe each scenario; these labels are not public API concepts.
+
 The benchmark also checks paired inputs, replay, trace independence and allocation
 counts in smoke mode. See [benchmark methodology](docs/benchmarks.md) before making
 performance claims. Do not use CI smoke timings as performance results.

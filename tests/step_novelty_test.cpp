@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 PullsarDev
 // SPDX-License-Identifier: Apache-2.0
 
-// Retained novelty contracts: tasks/03-m2-intelligent-attention.md.
+// Checks timestamped novelty decay, event validation, geometric gating, saturation,
+// temporal selection and deterministic replay over the same candidate streams.
 // Alternative compositions live only in this test; the production policy is reused.
 #include "test_support.hpp"
 

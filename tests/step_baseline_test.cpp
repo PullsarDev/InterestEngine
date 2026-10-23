@@ -1,7 +1,20 @@
 // SPDX-FileCopyrightText: 2026 PullsarDev
 // SPDX-License-Identifier: Apache-2.0
 
-// Compares a stateless score maximum with the kernel temporal policy on identical streams.
+// Compares B1 (stateless acquisition of the leading score) with B2 (the kernel's
+// contextual scoring and temporal policy) on identical candidate streams. Novelty
+// is disabled. Each step runs Step() once; B1 is read from that call's trace so both
+// baselines see exactly the same scores.
+//
+// Ablations rerun each stream with one temporal mechanism changed in the profile:
+//   no band      releaseThreshold = acquireThreshold
+//   no dwell     minDwellMs = 0
+//   override~off overrideMargin = 1. This only approximates disabling override:
+//                a score of 1 can still override a target at 0 during dwell. Each
+//                run asserts no DwellOverride occurred, making it exact here.
+//   min margin   switchMargin = 0.001 (a margin cannot be zero)
+// Every step is checked against the policy rules through test::ConsistentStep.
+// These synthetic streams measure mechanism effects, not natural attention quality.
 
 #include "test_support.hpp"
 

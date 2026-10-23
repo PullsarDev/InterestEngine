@@ -2,6 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Compares temporal selection and minimum dwell at 5 Hz and 20 Hz.
+// Scenes are piecewise-constant functions of host time, changing on a 50 ms grid.
+// They are sampled at 5 Hz (200 ms), 20 Hz (50 ms) and a 1 kHz reference rate that
+// observes each change when it occurs. Step sees a change at its first call at or
+// after it, so detection is late by less than one interval. A dwell deadline based
+// on an already-late focus start can add another interval. Every step is checked
+// against the policy rules through test::ConsistentStep.
+//
+// Unless stated otherwise, test::TemporalProfile sets acquire/release to 0.5/0.375,
+// switch/override margins to 0.125/0.25 and dwell to 500 ms. These synthetic scenes
+// measure timing and stability tradeoffs, not perceptual attention quality.
 
 #include "test_support.hpp"
 

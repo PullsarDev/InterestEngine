@@ -15,7 +15,7 @@ using interest::DecisionKind;
 using interest::TimeMs;
 using test::Harness;
 
-enum class Control { B2, Fatigue, Novelty, Combined, Salience, Salience8 };
+enum class Control { B2, Novelty, Salience, Salience8 };
 constexpr Control controls[]{Control::B2, Control::Novelty, Control::Salience, Control::Salience8};
 constexpr Control crowdControls[]{Control::B2, Control::Novelty};
 
@@ -23,9 +23,7 @@ const char* Name(Control c)
 {
     switch (c) {
     case Control::B2: return "B2";
-    case Control::Fatigue: return "fatigue";
     case Control::Novelty: return "novelty";
-    case Control::Combined: return "combined";
     case Control::Salience: return "salience";
     case Control::Salience8: return "salience8";
     }
@@ -36,7 +34,7 @@ AttentionProfile Profile(std::span<const ContextPreference> contexts, Control co
 {
     auto p = test::TemporalProfile(contexts);
     p.minDwellMs = 0;
-    p.noveltyBeta = control == Control::Novelty || control == Control::Combined ? 0.75f : 0.f;
+    p.noveltyBeta = control == Control::Novelty ? 0.75f : 0.f;
     return p;
 }
 
@@ -66,10 +64,6 @@ struct CrowdMetrics {
     int clears = 0;
     std::size_t peak = 0;
     std::size_t evictions = 0;
-    std::size_t freshSamples = 0;
-    int freshSelections = 0;
-    int positiveFreshSelections = 0;
-    double lostH = 0;
     std::size_t decayUpdates = 0;
 };
 
@@ -106,12 +100,8 @@ void CapacitySweep()
                     CHECK(m.switches == 0 && m.clears == 0);
                 }
                 CHECK(m.peak == 0 && m.evictions == 0 && m.decayUpdates == 0);
-                std::printf("  crowd n=%zu varied=%d %-8s switch=%d clear=%d peak=%zu "
-                            "evict=%zu freshSamples=%zu freshSelections=%d positiveFresh=%d "
-                            "lostH=%.3f exp2Updates=%zu\n",
-                            population, varied, Name(control), m.switches, m.clears, m.peak,
-                            m.evictions, m.freshSamples, m.freshSelections, m.positiveFreshSelections,
-                            m.lostH, m.decayUpdates);
+                std::printf("  crowd n=%zu varied=%d %-8s switch=%d clear=%d\n",
+                            population, varied, Name(control), m.switches, m.clears);
             }
         }
     }

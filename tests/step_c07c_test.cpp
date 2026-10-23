@@ -181,7 +181,7 @@ void FixedScenarios()
         }
     }
 
-    // Discrimination between two strong sources (0.9 vs 0.8 on every cue). An temporal switch
+    // Discrimination between two strong sources (0.9 vs 0.8 on every cue). A temporal switch
     // margin is an absolute score difference, so a compressed gap matters.
     const CandidateSnapshot strong[]{Stimulus(1, 5, 0, 0.9f, 0.9f, 9),
                                      Stimulus(2, 5, 0, 0.8f, 0.8f, 8)};
