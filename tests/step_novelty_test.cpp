@@ -465,7 +465,7 @@ int main()
     test::Run("event validation and extreme signed ages", EventValidationAndExtremeAges);
     test::Run("event capture and ordinary-policy return", OrdinaryPolicyCapturesAndReturns);
     test::Run("spatial versus perception-only novelty", SpatialGatingComparison);
-    test::Run("saturation and preserved M1 boundaries", SaturationAndPolicyBoundaries);
+    test::Run("saturation and preserved temporal boundaries", SaturationAndPolicyBoundaries);
     test::Run("errors preserve novelty traces and every buffer", ErrorsPreserveAllBuffers);
     test::Run("copy replay, permutations, trace off and novelty-off", ReplayPermutationsAndAblation);
     test::Run("enable and reset preserve absolute event age", EnableAndResetPreserveEventAge);

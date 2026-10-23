@@ -291,7 +291,7 @@ void C14C16AndSaturation()
     CHECK(static_cast<double>(pair[1].attraction) + 0.75 -
           (static_cast<double>(pair[0].attraction) + 0.375) > static_cast<double>(p.switchMargin));
     std::printf("  C16 contexts choose different IDs; C14 exact age; saturation masks "
-                "a passing unsaturated lead as an M1 tie\n");
+                "a passing unsaturated lead as a temporal-policy tie\n");
 }
 
 void NoveltySensitivity()
@@ -326,7 +326,7 @@ int main()
 {
     std::printf("  footprints observer=%zu candidate=%zu trace=%zu bytes\n",
                 sizeof(interest::ObserverMemory), sizeof(CandidateSnapshot), sizeof(interest::CandidateTrace));
-    test::Run("C17 capacity cliff and seeded parameter sensitivity", CapacitySweep);
+    test::Run("C17 stable selection across population sizes", CapacitySweep);
     test::Run("C13/C15 benefit labels and recovery", C13C15AndRecovery);
     test::Run("ten-minute event streams versus host salience", NoveltyVersusHostSalience);
     test::Run("C14/C16 and saturation cost", C14C16AndSaturation);
