@@ -1,0 +1,116 @@
+# SPDX-FileCopyrightText: 2026 PullsarDev
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }} Debug (${{ matrix.checks }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [msvc, clang, gcc]
+        checks: [default, constrained]
+        include:
+          - compiler: msvc
+            name: Windows MSVC
+            os: windows-latest
+            cmake_args: ""
+          - compiler: clang
+            name: Linux Clang
+            os: ubuntu-latest
+            cmake_args: -DCMAKE_CXX_COMPILER=clang++
+          - compiler: gcc
+            name: Linux GCC
+            os: ubuntu-latest
+            cmake_args: -DCMAKE_CXX_COMPILER=g++
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DINTEREST_WARNINGS_AS_ERRORS=ON
+          -DINTEREST_CONSTRAINED_BUILD=${{ matrix.checks == 'constrained' && 'ON' || 'OFF' }}
+          ${{ matrix.cmake_args }}
+      - name: Build
+        run: cmake --build build --config Debug --parallel 2
+      - name: Test
+        run: ctest --test-dir build -C Debug --output-on-failure --no-tests=error
+
+  optimized:
+    name: ${{ matrix.name }} Release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC
+            os: windows-latest
+            cmake_args: ""
+          - name: Linux Clang
+            os: ubuntu-latest
+            cmake_args: -DCMAKE_CXX_COMPILER=clang++
+          - name: Linux GCC
+            os: ubuntu-latest
+            cmake_args: -DCMAKE_CXX_COMPILER=g++
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Configure
+        run: >
+          cmake -S . -B build-release
+          -DCMAKE_BUILD_TYPE=Release
+          -DINTEREST_WARNINGS_AS_ERRORS=ON
+          ${{ matrix.cmake_args }}
+      - name: Build
+        run: cmake --build build-release --config Release --parallel 2
+      - name: Test
+        run: ctest --test-dir build-release -C Release --output-on-failure --no-tests=error
+      - name: Build from a parent CMake project
+        run: >
+          cmake -S examples/consumer -B build-consumer
+          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_args }}
+      - name: Build consumer
+        run: cmake --build build-consumer --config Release --parallel 2
+      - name: Test consumer
+        run: ctest --test-dir build-consumer -C Release --output-on-failure --no-tests=error
+
+  sanitizers:
+    name: Linux Clang ASan + UBSan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ASAN_OPTIONS: detect_leaks=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Configure
+        run: >
+          cmake -S . -B build-sanitizers
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+          -DINTEREST_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+      - name: Build
+        run: cmake --build build-sanitizers --parallel 2
+      - name: Test
+        run: ctest --test-dir build-sanitizers --output-on-failure --no-tests=error
