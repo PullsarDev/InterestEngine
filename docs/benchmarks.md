@@ -113,10 +113,123 @@ retained memory.
 
 ## Interpretation limits
 
-Geometric gates attenuate novelty; the synthetic front/behind event test captures
-40/40 labelled front events and 0/40 labelled important behind events under its
-chosen profile. Saturation can erase a challenger's otherwise sufficient advantage.
+At default event directionality, geometric gates attenuate novelty; the synthetic
+front/behind event test captures 40/40 labelled front events and 0/40 labelled important
+behind events under its chosen profile. Saturation can erase a challenger's otherwise
+sufficient advantage.
 Beta, half-life, margins and update cadence alter capture and retention. These
 scenarios document limitations rather than validate real gameplay, perception or
 human attention. Replay equality is tested within a build/platform; cross-platform
 bit-exact output, ARM and other architectures remain unverified.
+
+## Event directionality candidate (proposed v0.2.0)
+
+`CandidateSnapshot::eventDirectionality` changes novelty's angular gate, not raw
+preference scoring. Its default of 1 reuses the legacy rounded `gate` exactly.
+Lower values reduce the novelty angle penalty while keeping distance and perception
+gating. The host still controls perception strength, event generation and candidate
+range. Capture and return remain conditional on effective scores and temporal policy.
+
+Both this trailing snapshot field and the new trailing `CandidateTrace::noveltyGate`
+change the public layout contract: rebuild consumers against matching headers and
+library. On MSVC x64 the snapshot remains 104 bytes (the new float uses tail padding),
+while each trace entry grows from 96 to 104 bytes. Capacity 500 therefore uses
+52,000 bytes of optional trace storage, up from 48,000; scratch ID storage and
+32-byte observer memory are unchanged. These are measured sizes, not ABI promises.
+
+The comparison on 2026-10-24 rebuilds tag `v0.1.0` (`f89159b`) and the event
+directionality implementation (`0f9d1b4`) with the same MSVC 19.38.33145 x64 Release settings,
+Visual Studio generator, warnings as errors and no LTO/IPO. CPU, RAM, OS and power
+policy match the recorded environment above; background desktop applications were
+running, with no affinity, priority or frequency controls. No compiler builds ran
+concurrently with the timed processes.
+
+Each revision runs the unchanged 44-configuration harness in three independent
+processes, each with `--runs 5 --cycles 128`. Process order is baseline/candidate,
+candidate/baseline, baseline/candidate to expose drift. All inputs retain default
+directionality, so these measure compatibility overhead on existing workloads,
+not the cost or behavior of nondefault directionality. Single-observer comparisons
+use the median of three reported process batch medians; reference comparisons use
+the median of the three aggregate kernel times per simulated second. Per-call tails
+and all process results are inspected separately; timings are desktop observations.
+
+Measured batch nanoseconds per Step (default directionality throughout):
+
+| Configuration | Candidates | v0.1.0 | Candidate | Change |
+|---|---:|---:|---:|---:|
+| churn/core | 100 | 7828.5 | 7970.6 | +1.8% |
+| churn/core | 500 | 45798.2 | 46221.8 | +0.9% |
+| churn/core+trace | 100 | 8063.0 | 8232.6 | +2.1% |
+| churn/core+trace | 500 | 46743.8 | 47516.9 | +1.7% |
+| far80/core | 100 | 4100.5 | 4255.1 | +3.8% |
+| far80/core | 500 | 22575.2 | 23296.6 | +3.2% |
+| far80/core+trace | 100 | 4617.0 | 4765.0 | +3.2% |
+| far80/core+trace | 500 | 24943.8 | 25774.9 | +3.3% |
+| front/core | 100 | 6948.0 | 7250.4 | +4.4% |
+| front/core | 500 | 35678.9 | 37233.9 | +4.4% |
+| front/core+trace | 100 | 7294.1 | 7587.7 | +4.0% |
+| front/core+trace | 500 | 37266.3 | 38987.5 | +4.6% |
+| mixed/core | 0 | 293.3 | 294.4 | +0.4% |
+| mixed/core | 16 | 1180.8 | 1219.3 | +3.3% |
+| mixed/core | 100 | 6150.1 | 6422.7 | +4.4% |
+| mixed/core | 500 | 32019.7 | 33278.4 | +3.9% |
+| mixed/core+trace | 0 | 291.7 | 291.5 | -0.1% |
+| mixed/core+trace | 16 | 1231.7 | 1276.7 | +3.7% |
+| mixed/core+trace | 100 | 6482.7 | 6773.7 | +4.5% |
+| mixed/core+trace | 500 | 33533.5 | 35128.1 | +4.8% |
+| mixed/events,beta0 | 0 | 291.8 | 291.3 | -0.2% |
+| mixed/events,beta0 | 16 | 1188.4 | 1228.7 | +3.4% |
+| mixed/events,beta0 | 100 | 6242.7 | 6489.5 | +4.0% |
+| mixed/events,beta0 | 500 | 32287.8 | 33712.6 | +4.4% |
+| mixed/novelty | 0 | 292.8 | 291.9 | -0.3% |
+| mixed/novelty | 16 | 1197.3 | 1237.4 | +3.3% |
+| mixed/novelty | 100 | 6260.2 | 6512.6 | +4.0% |
+| mixed/novelty | 500 | 32361.4 | 33710.0 | +4.2% |
+| mixed/novelty+trace | 0 | 295.6 | 291.9 | -1.3% |
+| mixed/novelty+trace | 16 | 1253.3 | 1292.8 | +3.2% |
+| mixed/novelty+trace | 100 | 6574.5 | 6858.9 | +4.3% |
+| mixed/novelty+trace | 500 | 33989.5 | 35497.1 | +4.4% |
+| reject50/core | 100 | 4711.8 | 4872.8 | +3.4% |
+| reject50/core | 500 | 24198.0 | 25080.6 | +3.6% |
+| reject50/core+trace | 100 | 5184.9 | 5358.5 | +3.3% |
+| reject50/core+trace | 500 | 26547.4 | 27458.3 | +3.4% |
+| shuffle/core | 100 | 7659.6 | 7791.6 | +1.7% |
+| shuffle/core | 500 | 44783.3 | 45370.5 | +1.3% |
+| shuffle/core+trace | 100 | 7884.1 | 8089.7 | +2.6% |
+| shuffle/core+trace | 500 | 45897.8 | 46571.8 | +1.5% |
+| surround/core | 100 | 6951.0 | 7250.4 | +4.3% |
+| surround/core | 500 | 35741.6 | 37329.9 | +4.4% |
+| surround/core+trace | 100 | 7275.9 | 7564.2 | +4.0% |
+| surround/core+trace | 500 | 37471.1 | 39120.6 | +4.4% |
+
+Reference kernel milliseconds per simulated second (100 observers × 500 candidates × 5 Hz):
+
+| Configuration | v0.1.0 | Candidate | Change |
+|---|---:|---:|---:|
+| ref/core | 21.099 | 21.401 | +1.4% |
+| ref/core,shared-order | 14.110 | 14.489 | +2.7% |
+| ref/novelty | 21.572 | 21.970 | +1.8% |
+| ref/novelty+trace | 22.088 | 22.700 | +2.8% |
+
+This is a measurable regression: nonempty single-observer batch medians increase
+0.9–4.8%, and reference variants increase 1.4–2.8%. Empty-workload differences are
+within 1.3% and do not establish an improvement. These results include validation
+of the additional scalar and the extra trace field; no profiler-based attribution
+of their individual costs was performed.
+
+For mixed/core at 500 candidates, the three process batch medians are
+31,884.5 / 32,328.5 / 32,019.7 ns for v0.1.0 and
+33,383.5 / 33,271.7 / 33,278.4 ns for the candidate. Per-call p99 ranges are
+36.6–48.8 and 36.9–37.7 microseconds respectively. Mixed/novelty at 500 has p99
+ranges of 36.2–47.0 and 39.4–51.1 microseconds. Across all single-observer
+configurations/processes the largest individual samples are 1.2103 ms (v0.1.0)
+and 1.6740 ms (candidate). Tails vary with desktop scheduling; lower isolated
+percentiles do not demonstrate a performance improvement or a latency guarantee.
+
+All six processes pass the harness's pairing, status, replay and trace-on/off
+checks, with zero allocations in 3,604,480 measured single-observer calls and
+200,000 reference calls per process. Nondefault directionality is separately
+covered by the prepared allocation regression and correctness suites. An
+independent 4,000-frame × 40-candidate Release replay against v0.1.0 also produces
+identical binary serialization of every decision, observer-memory field and
+pre-existing trace field at default directionality.
