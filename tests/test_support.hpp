@@ -275,7 +275,8 @@ inline bool SameEntry(const interest::CandidateTrace& a, const interest::Candida
            a.rawScore == b.rawScore &&
            a.effectiveScore == b.effectiveScore && a.eventTimeMs == b.eventTimeMs &&
            a.eventStrength == b.eventStrength &&
-           a.eventNovelty == b.eventNovelty && a.noveltyContribution == b.noveltyContribution;
+           a.eventNovelty == b.eventNovelty && a.noveltyContribution == b.noveltyContribution &&
+           a.noveltyGate == b.noveltyGate;
 }
 
 // Recomputes the policy inputs from the per-candidate entries and checks the decision

@@ -60,7 +60,7 @@ void CheckStep(const Harness& h, const AttentionProfile& p, TimeMs now)
         }
         CHECK(e.eventNovelty == novelty && novelty >= 0 && novelty <= 1);
         CHECK(e.noveltyContribution == static_cast<double>(p.noveltyBeta) *
-              static_cast<double>(e.gate) * novelty);
+              static_cast<double>(e.noveltyGate) * novelty);
         CHECK(e.effectiveScore == static_cast<float>((std::min)(
               1.0, static_cast<double>(e.rawScore) + e.noveltyContribution)));
         if (e.id == h.output.selected) {
@@ -338,7 +338,8 @@ void ErrorsPreserveAllBuffers()
 {
     const ContextPreference contexts[1]{};
     const auto p = NoveltyProfile(contexts);
-    const CandidateSnapshot frame[]{Event(Scored(1, 0.4f), 0)};
+    CandidateSnapshot frame[]{Event(Scored(1, 0.4f), 0)};
+    frame[0].eventDirectionality = 0.5f;
     Harness h;
     CHECK(h.Run(Observer(), frame, p, 1000) == StepStatus::Ok);
     const Harness before = h;
@@ -403,6 +404,7 @@ void ReplayPermutationsAndAblation()
             c.position = {static_cast<double>(rng.Below(41)) - 20, 0, 0};
             c.bearing = {rng.Below(2) == 0 ? -1.f : 1.f, 0, 0};
             c.perceptionStrength = rng.Unit();
+            c.eventDirectionality = static_cast<float>(step % 5) / 4.f;
             c.enabled = rng.Below(20) != 0;
             frame.push_back(c);
         }
@@ -411,6 +413,10 @@ void ReplayPermutationsAndAblation()
         CHECK(h.Run(Observer(), frame, p, now) == StepStatus::Ok);
         CHECK(replay.Run(Observer(), frame, p, now) == StepStatus::Ok);
         CHECK(test::SameMemory(h.memory, replay.memory) && test::SameDecision(h.output, replay.output));
+        CHECK(test::SamePolicyTrace(h.trace, replay.trace));
+        for (std::size_t i = 0; i < frame.size(); ++i) {
+            CHECK(test::SameEntry(h.trace.candidates[i], replay.trace.candidates[i]));
+        }
         CheckStep(h, p, now);
         interest::Reserve(untraced.scratch, frame.size());
         CHECK(interest::Step(Observer(), frame, p, now, untraced.memory, untraced.scratch,
@@ -435,6 +441,204 @@ void ReplayPermutationsAndAblation()
     }
     std::printf("  2000 x 40 event inputs: copy replay, shuffled replay, trace off, beta-zero "
                 "B2 decision/memory ablation identical\n");
+}
+
+void DirectionalityGatesOnlyNovelty()
+{
+    const ContextPreference contexts[1]{};
+    auto p = NoveltyProfile(contexts);
+    p.angleFloor = 0.25f;
+    // Both geometry kinds with angular gates, plus the NonSpatial identity case.
+    for (auto kind : {interest::SpatialKind::Point, interest::SpatialKind::Bearing,
+                      interest::SpatialKind::NonSpatial}) {
+        for (double sign : {-1.0, 1.0}) {
+            float previousGate = 1.f;
+            float previousRaw = -1.f;
+            for (float d : {0.f, 0.25f, 0.5f, 0.75f, 1.f}) {
+                auto c = Event(Scored(1, 0.25f), 0);
+                c.spatial = kind;
+                c.position = {15.0 * sign, 0, 0}; // distance falloff .5
+                c.bearing = {static_cast<float>(sign), 0, 0};
+                c.perceptionStrength = 0.5f;
+                c.eventDirectionality = d;
+                Harness h;
+                CHECK(h.Run(Observer(), std::span(&c, 1), p, 1000) == StepStatus::Ok);
+                const auto& e = *h.Find(1);
+                const double distance = kind == interest::SpatialKind::Point ? 0.5 : 1.0;
+                const double angle = kind == interest::SpatialKind::NonSpatial || sign > 0 ? 1.0 : 0.25;
+                CHECK(static_cast<double>(e.distanceGate) == distance &&
+                      static_cast<double>(e.angleGate) == angle);
+                CHECK(static_cast<double>(e.noveltyGate) ==
+                      distance * (1.0 - static_cast<double>(d) * (1.0 - angle)) * 0.5);
+                CHECK(static_cast<double>(e.gate) == distance * angle * 0.5);
+                CHECK(static_cast<double>(e.rawScore) == distance * angle * 0.5 * 0.25);
+                CHECK(e.noveltyGate <= previousGate);
+                CHECK(previousRaw < 0 || e.rawScore == previousRaw);
+                CHECK(e.eventNovelty == 0.5);
+                if (d == 1.f) { CHECK(e.noveltyGate == e.gate); }
+                previousGate = e.noveltyGate;
+                previousRaw = e.rawScore;
+                CheckStep(h, p, 1000);
+            }
+        }
+    }
+    for (float d : {0.f, 0.5f, 1.f}) {
+        for (double distance : {20.0, std::nextafter(20.0, 21.0), 21.0}) {
+            auto c = Event(test::PointAt(1, -distance, 0, 1.f, 1.f), 0);
+            c.eventDirectionality = d;
+            Harness h;
+            CHECK(h.Run(Observer(), std::span(&c, 1), p, 0) == StepStatus::Ok);
+            CHECK(h.Find(1)->eligibility == (distance > 20 ? Eligibility::OutOfRange : Eligibility::Eligible));
+            CHECK(h.Find(1)->noveltyGate == 0 && h.Find(1)->effectiveScore == 0);
+            c.maxDistance = 10.f;
+            CHECK(h.Run(Observer(), std::span(&c, 1), p, 0) == StepStatus::Ok);
+            CHECK(h.Find(1)->eligibility == Eligibility::OutOfRange);
+            c.position = {-5, 0, 0};
+            c.perceptionStrength = 0;
+            CHECK(h.Run(Observer(), std::span(&c, 1), p, 0) == StepStatus::Ok);
+            CHECK(h.Find(1)->eligibility == Eligibility::NotPerceived);
+            CHECK(h.Find(1)->noveltyGate == 0 && h.Find(1)->effectiveScore == 0);
+        }
+    }
+}
+
+void DefaultPreservesLegacyRoundedGate()
+{
+    const ContextPreference contexts[1]{};
+    auto p = NoveltyProfile(contexts);
+    auto off = p; off.noveltyBeta = 0;
+    test::Random rng(0xD120010);
+    int differentRounding = 0;
+    for (int i = 0; i < 1000; ++i) {
+        auto c = Event(test::PointAt(1, 10.0 + 8.0 * static_cast<double>(rng.Unit()),
+                                     static_cast<double>(rng.Unit()),
+                                     rng.Unit(), rng.Unit()), 0, rng.Unit());
+        c.perceptionStrength = 0.1f + 0.9f * rng.Unit();
+        CHECK(c.eventDirectionality == 1.f);
+        Harness h, base, explicitDefault;
+        CHECK(base.Run(Observer(), std::span(&c, 1), off, 1000) == StepStatus::Ok);
+        CHECK(h.Run(Observer(), std::span(&c, 1), p, 1000) == StepStatus::Ok);
+        const auto& e = *h.Find(1);
+        auto expected = *base.Find(1);
+        // Legacy composition uses this rounded gate, never a product of trace factors.
+        expected.noveltyContribution = static_cast<double>(p.noveltyBeta) *
+                                      static_cast<double>(expected.gate) * expected.eventNovelty;
+        expected.effectiveScore = static_cast<float>((std::min)(
+            1.0, static_cast<double>(expected.rawScore) + expected.noveltyContribution));
+        CHECK(test::SameEntry(e, expected));
+        CHECK(e.attraction == expected.attraction && e.salience == expected.salience &&
+              e.perceptionStrength == expected.perceptionStrength);
+        CHECK(e.noveltyGate == e.gate);
+        const float recombined = static_cast<float>(static_cast<double>(e.distanceGate) *
+            static_cast<double>(e.angleGate) * static_cast<double>(e.perceptionStrength));
+        differentRounding += recombined != e.gate ? 1 : 0;
+        c.eventDirectionality = 1.f;
+        CHECK(explicitDefault.Run(Observer(), std::span(&c, 1), p, 1000) == StepStatus::Ok);
+        CHECK(test::SameEntry(e, *explicitDefault.Find(1)));
+        CHECK(test::SameDecision(h.output, explicitDefault.output));
+        CHECK(test::SamePolicyTrace(h.trace, explicitDefault.trace));
+        CHECK(test::SameMemory(h.memory, explicitDefault.memory));
+        CheckStep(h, p, 1000);
+    }
+    CHECK(differentRounding > 100); // this fixture detects a rounded-factor recomputation
+}
+
+void InvalidDirectionalityAndPrecedence()
+{
+    ContextPreference contexts[1]{};
+    auto p = NoveltyProfile(contexts);
+    p.minDwellMs = 10000;
+    const float bad[]{-0.01f, 1.01f, -std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()};
+    for (float beta : {0.f, 0.75f}) {
+        p.noveltyBeta = beta;
+        for (float strength : {0.f, 1.f}) {
+            for (float d : bad) {
+                Harness h;
+                const CandidateSnapshot first[]{Scored(1, 0.8f)};
+                CHECK(h.Run(Observer(), first, p, 0) == StepStatus::Ok);
+                CandidateSnapshot frame[]{Event(first[0], 0, strength), Scored(2, 0.625f)};
+                frame[0].eventDirectionality = d;
+                CHECK(h.Run(Observer(), frame, p, 100) == StepStatus::Ok);
+                CHECK(h.Find(1)->eligibility == Eligibility::InvalidEvent);
+                CHECK_DECISION(h, Switch, CurrentInvalid, 2);
+                CHECK(h.Find(1)->noveltyGate == 0);
+                CheckStep(h, p, 100);
+            }
+        }
+    }
+    // Earlier checks still win; later eligibility failures never hide InvalidEvent.
+    auto c = Event(test::PointAt(1, 30, 0, 1.f, 1.f), 0);
+    c.eventDirectionality = -1;
+    const auto check = [&](const CandidateSnapshot& value, Eligibility expected) {
+        Harness h;
+        CHECK(h.Run(Observer(), std::span(&value, 1), p, 0) == StepStatus::Ok);
+        CHECK(h.trace.candidates[0].eligibility == expected);
+    };
+    check(c, Eligibility::InvalidEvent);
+    c.enabled = false; check(c, Eligibility::InvalidEvent);
+    c.perceptionStrength = 0; check(c, Eligibility::InvalidEvent);
+    contexts[0].requiredTags = 1; check(c, Eligibility::InvalidEvent);
+    contexts[0].requiredTags = 0; contexts[0].excludedTags = 1; c.tags = 1;
+    check(c, Eligibility::InvalidEvent);
+    c.position.x = std::numeric_limits<double>::quiet_NaN();
+    check(c, Eligibility::InvalidGeometry);
+    c.attraction = -1; check(c, Eligibility::InvalidValue);
+    c.id = 0; check(c, Eligibility::InvalidId);
+    c.id = 1;
+    const CandidateSnapshot duplicates[]{c, c};
+    Harness h;
+    CHECK(h.Run(Observer(), duplicates, p, 0) == StepStatus::Ok);
+    for (const auto& e : h.trace.candidates) { CHECK(e.eligibility == Eligibility::DuplicateId); }
+}
+
+void DirectionalCaptureDecayAndConditionalReturn()
+{
+    const ContextPreference contexts[1]{};
+    auto p = NoveltyProfile(contexts);
+    p.angleFloor = 0;
+    p.minDwellMs = 500;
+    for (float d : {0.f, 0.5f, 1.f}) {
+        for (float previousScore : {0.625f, 0.25f}) {
+            Harness h;
+            const CandidateSnapshot first[]{Scored(1, 0.625f)};
+            CHECK(h.Run(Observer(), first, p, 0) == StepStatus::Ok);
+            auto event = Event(test::PointAt(2, -5, 0, 1.f, 1.f), 100);
+            event.eventDirectionality = d;
+            CandidateSnapshot frame[]{Scored(1, previousScore), event};
+            CHECK(h.Run(Observer(), frame, p, 100) == StepStatus::Ok);
+            CHECK(h.Find(2)->rawScore == 0);
+            CHECK(h.Find(2)->effectiveScore == 0.75f * (1.f - d));
+            const bool captured = d == 0.f && previousScore == 0.25f;
+            CHECK((h.output.selected == 2) == captured);
+            if (captured) { CHECK_DECISION(h, Switch, DwellOverride, 2); }
+            CHECK(h.Run(Observer(), frame, p, 1100) == StepStatus::Ok);
+            CHECK(h.Find(2)->eventNovelty == 0.5);
+            CHECK(h.Run(Observer(), frame, p, 2100) == StepStatus::Ok);
+            CHECK(h.Find(2)->eventNovelty == 0.25);
+            if (captured) {
+                CHECK_DECISION(h, Clear, BelowReleaseThreshold, 0);
+                // Return requires the old target to qualify for acquisition again.
+                frame[0].attraction = 0.625f;
+                CHECK(h.Run(Observer(), frame, p, 2200) == StepStatus::Ok);
+                CHECK_DECISION(h, Acquire, HighestScore, 1);
+            }
+            CheckStep(h, p, captured ? 2200 : 2100);
+        }
+        // A qualifying previous target returns directly after a captured event fades.
+        Harness h;
+        const CandidateSnapshot first[]{Scored(1, 0.625f)};
+        CHECK(h.Run(Observer(), first, p, 0) == StepStatus::Ok);
+        auto event = Event(test::PointAt(2, -5, 0, 1.f, 1.f), 500);
+        event.eventDirectionality = d;
+        const CandidateSnapshot frame[]{first[0], event};
+        CHECK(h.Run(Observer(), frame, p, 500) == StepStatus::Ok);
+        CHECK((h.output.selected == 2) == (d == 0.f));
+        CHECK(h.Run(Observer(), frame, p, 2500) == StepStatus::Ok);
+        CHECK(h.output.selected == 1);
+        if (d == 0.f) { CHECK_DECISION(h, Switch, BelowReleaseThreshold, 1); }
+        CheckStep(h, p, 2500);
+    }
 }
 
 void EnableAndResetPreserveEventAge()
@@ -462,6 +666,10 @@ void EnableAndResetPreserveEventAge()
 
 int main()
 {
+    test::Run("directionality gates novelty independently of raw scoring", DirectionalityGatesOnlyNovelty);
+    test::Run("default preserves legacy rounded gate and all trace fields", DefaultPreservesLegacyRoundedGate);
+    test::Run("invalid directionality and eligibility precedence", InvalidDirectionalityAndPrecedence);
+    test::Run("directional capture, decay and conditional return", DirectionalCaptureDecayAndConditionalReturn);
     test::Run("C14 unchanged timestamp decays without retrigger", C14UnchangedEventNeverRetriggers);
     test::Run("event validation and extreme signed ages", EventValidationAndExtremeAges);
     test::Run("event capture and ordinary-policy return", OrdinaryPolicyCapturesAndReturns);

@@ -47,7 +47,7 @@ bool SameEntry(const CandidateTrace& a, const CandidateTrace& b)
         a.affinity == b.affinity && a.preference == b.preference && a.rawScore == b.rawScore;
     same = same && a.effectiveScore == b.effectiveScore && a.eventTimeMs == b.eventTimeMs &&
         SameFloat(a.eventStrength, b.eventStrength) && a.eventNovelty == b.eventNovelty &&
-        a.noveltyContribution == b.noveltyContribution;
+        a.noveltyContribution == b.noveltyContribution && a.noveltyGate == b.noveltyGate;
     return same;
 }
 

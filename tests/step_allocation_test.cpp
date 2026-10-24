@@ -79,6 +79,7 @@ void PreparedStepsDoNotAllocate()
             c.enabled = rng.Below(8) != 0;
             c.eventTimeMs = -100;
             c.eventStrength = 0.75f;
+            c.eventDirectionality = static_cast<float>(rng.Below(5)) / 4.f;
         }
     }
     // Repeated population changes with eligible inputs and fresh events, independent
@@ -89,6 +90,7 @@ void PreparedStepsDoNotAllocate()
             frames[i].push_back(test::NonSpatial(1000 + (i % 2) * 100 + j, 0.8f, 0.8f));
             frames[i].back().eventTimeMs = static_cast<interest::TimeMs>((i + 1) * 100 - 50);
             frames[i].back().eventStrength = 0.8f;
+            frames[i].back().eventDirectionality = static_cast<float>(j % 5) / 4.f;
         }
     }
     const std::vector<CandidateSnapshot> oversized(kCapacity + 1, test::NonSpatial(1, 1.f, 1.f));
