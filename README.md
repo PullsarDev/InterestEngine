@@ -17,11 +17,16 @@ coverage. API, ABI and tuning compatibility may change before 1.0; there is no
 serialized-state format or cross-platform bit-exact simulation guarantee.
 
 **Next release candidate: v0.2.0.** Event directionality adds an optional trailing
-`float CandidateSnapshot::eventDirectionality{1.f}` and a trailing
-`float CandidateTrace::noveltyGate`. These change public struct layouts; rebuild
+`float CandidateSnapshot::eventDirectionality{1.f}` and
+`float CandidateTrace::noveltyGate` after `eventStrength`. The trace field occupies
+existing padding on tested x64 compilers, preserving its 96-byte size and all
+pre-existing field offsets. These change public struct layouts; rebuild
 consumers with matching headers and library. Existing aggregate initializers may
 omit the new snapshot field and retain legacy behavior. The release version stays
 0.1.0 until a release is approved.
+
+Use named fields for trace access; positional `CandidateTrace` aggregate initializers
+must account for the inserted field before `eventNovelty`.
 
 ## Engineering characteristics
 

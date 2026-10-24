@@ -130,12 +130,19 @@ Lower values reduce the novelty angle penalty while keeping distance and percept
 gating. The host still controls perception strength, event generation and candidate
 range. Capture and return remain conditional on effective scores and temporal policy.
 
-Both this trailing snapshot field and the new trailing `CandidateTrace::noveltyGate`
-change the public layout contract: rebuild consumers against matching headers and
-library. On MSVC x64 the snapshot remains 104 bytes (the new float uses tail padding),
-while each trace entry grows from 96 to 104 bytes. Capacity 500 therefore uses
-52,000 bytes of optional trace storage, up from 48,000; scratch ID storage and
-32-byte observer memory are unchanged. These are measured sizes, not ABI promises.
+The trailing snapshot field and new `CandidateTrace::noveltyGate` change the public
+layout contract: rebuild consumers against matching headers and library. The trace
+field now sits immediately after `eventStrength`, before `eventNovelty`, reusing four
+bytes of x64 alignment padding. The snapshot remains 104 bytes and the trace returns
+to 96 bytes, with all v0.1.0 trace field offsets unchanged. Capacity 500 again uses
+48,000 bytes of optional trace storage; scratch ID storage and 32-byte observer memory
+are unchanged. The smoke test checks every legacy field offset on x64. These are
+tested layouts, not ABI promises for other targets. Positional trace aggregate
+initializers must account for the inserted field; named field access is unchanged.
+
+The following timing table records the initial implementation with a 104-byte trace.
+It is retained as historical evidence; the focused layout comparison below measures
+the subsequent 96-byte trace against the pre-cleanup PR head.
 
 The comparison on 2026-10-24 rebuilds tag `v0.1.0` (`f89159b`) and the event
 directionality implementation (`0f9d1b4`) with the same MSVC 19.38.33145 x64 Release settings,

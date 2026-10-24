@@ -226,11 +226,12 @@ struct CandidateTrace {
     float effectiveScore{};           // min(1, rawScore + noveltyContribution), as compared
     TimeMs eventTimeMs{};             // input copy, ignored if eventStrength == 0
     float eventStrength{};            // input copy, including rejected values
-    double eventNovelty{};            // strength * 2^(-age / halfLife), [0,1]; absent => 0
-    double noveltyContribution{};     // beta * noveltyGate * eventNovelty, before saturation
     // Rounded distanceGate * (1 - eventDirectionality * (1 - angleGate)) * perceptionStrength,
     // computed from unrounded geometric factors. At directionality 1, reuses gate exactly.
+    // Placed here to reuse x64 alignment padding without moving pre-existing fields.
     float noveltyGate{};
+    double eventNovelty{};            // strength * 2^(-age / halfLife), [0,1]; absent => 0
+    double noveltyContribution{};     // beta * noveltyGate * eventNovelty, before saturation
 };
 
 // Optional caller-owned explanation of one successful Step; written only when Ok.
