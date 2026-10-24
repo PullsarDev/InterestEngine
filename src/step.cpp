@@ -164,6 +164,7 @@ void EvaluateCandidate(const CandidateSnapshot& candidate, bool duplicate,
         return reject(Eligibility::InvalidGeometry);
     }
     if (!IsUnitInterval(candidate.eventStrength) ||
+        !IsUnitInterval(candidate.eventDirectionality) ||
         (candidate.eventStrength > 0.f && candidate.eventTimeMs > now)) {
         return reject(Eligibility::InvalidEvent);
     }
@@ -222,6 +223,15 @@ void EvaluateCandidate(const CandidateSnapshot& candidate, bool duplicate,
     out.distanceGate = static_cast<float>(distanceGate);
     out.angleGate = static_cast<float>(angleGate);
     out.gate = static_cast<float>(gate);
+    // Reuse the legacy rounded gate exactly at the default. Recomputing from the
+    // rounded trace factors would change novelty and possibly temporal decisions.
+    out.noveltyGate = out.gate;
+    if (candidate.eventDirectionality != 1.f) {
+        const double noveltyAngleGate =
+            1.0 - static_cast<double>(candidate.eventDirectionality) * (1.0 - angleGate);
+        out.noveltyGate = static_cast<float>(
+            distanceGate * noveltyAngleGate * static_cast<double>(candidate.perceptionStrength));
+    }
     out.affinity = affinity;
     out.preference = static_cast<float>(preference);
     // Selection compares this float, so the trace shows exactly the compared value.
@@ -447,7 +457,7 @@ StepStatus Step(const ObserverSnapshot& observer,
                               static_cast<double>(profile.noveltyHalfLifeMs));
             }
             evaluation.noveltyContribution = static_cast<double>(profile.noveltyBeta) *
-                static_cast<double>(evaluation.gate) * evaluation.eventNovelty;
+                static_cast<double>(evaluation.noveltyGate) * evaluation.eventNovelty;
             // Deliberate utility saturation, not a repair of invalid input. Round
             // once so tiny score differences enter the temporal policy.
             evaluation.effectiveScore = static_cast<float>((std::min)(

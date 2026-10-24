@@ -76,6 +76,11 @@ struct CandidateSnapshot {
     // Resubmit while relevant; omission removes the term. No event history is retained.
     TimeMs eventTimeMs{};
     float eventStrength{};            // finite [0,1], validated even when noveltyBeta == 0
+    // Novelty's angular gating only; raw preference scoring is unchanged.
+    // 1 preserves legacy gating, 0 ignores angle, intermediate values interpolate.
+    // Finite [0,1], validated even for absent events or noveltyBeta == 0.
+    // The host still controls perception strength, event generation and candidate range.
+    float eventDirectionality{1.f};
 };
 
 // Per-context eligibility and preference. Selected by ObserverSnapshot::context.
@@ -116,7 +121,8 @@ struct AttentionProfile {
     TimeMs minDwellMs{0};
     // Caller-owned; must outlive the Step call. At least one entry.
     std::span<const ContextPreference> contexts;
-    // Novelty: effective = min(1, rawScore + beta * gate * eventNovelty).
+    // Novelty: effective = min(1, rawScore + beta * noveltyGate * eventNovelty).
+    // noveltyGate retains distance/perception gating; eventDirectionality controls angle.
     // eventNovelty = eventStrength * 2^(-age / halfLife), from explicit host time.
     float noveltyBeta{0.f};           // [0,1]; 0 disables the contribution, not validation
     TimeMs noveltyHalfLifeMs{1000};    // strictly positive
@@ -199,7 +205,7 @@ enum class Eligibility : std::uint8_t {
     MissingRequiredTag,
     ExcludedTag,
     OutOfRange,           // Point farther than its cutoff distance
-    InvalidEvent,         // non-finite/out-of-range strength or positive-strength future time
+    InvalidEvent,         // invalid strength/directionality or positive-strength future time
 };
 
 // One evaluated candidate. Factors are the values used for selection; those the
@@ -221,7 +227,10 @@ struct CandidateTrace {
     TimeMs eventTimeMs{};             // input copy, ignored if eventStrength == 0
     float eventStrength{};            // input copy, including rejected values
     double eventNovelty{};            // strength * 2^(-age / halfLife), [0,1]; absent => 0
-    double noveltyContribution{};     // beta * gate * eventNovelty, before saturation
+    double noveltyContribution{};     // beta * noveltyGate * eventNovelty, before saturation
+    // Rounded distanceGate * (1 - eventDirectionality * (1 - angleGate)) * perceptionStrength,
+    // computed from unrounded geometric factors. At directionality 1, reuses gate exactly.
+    float noveltyGate{};
 };
 
 // Optional caller-owned explanation of one successful Step; written only when Ok.

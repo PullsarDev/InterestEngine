@@ -16,6 +16,13 @@ animation system, learning model or network service.
 coverage. API, ABI and tuning compatibility may change before 1.0; there is no
 serialized-state format or cross-platform bit-exact simulation guarantee.
 
+**Next release candidate: v0.2.0.** Event directionality adds an optional trailing
+`float CandidateSnapshot::eventDirectionality{1.f}` and a trailing
+`float CandidateTrace::noveltyGate`. These change public struct layouts; rebuild
+consumers with matching headers and library. Existing aggregate initializers may
+omit the new snapshot field and retain legacy behavior. The release version stays
+0.1.0 until a release is approved.
+
 ## Engineering characteristics
 
 - Standard-library-only production C++20; two implementation files and two headers.
@@ -65,11 +72,28 @@ affinity form a weighted mean. Distance, angle and perception strength multiply
 that preference into a raw score. There are 64 host-defined tag bits and up to 256
 addressable context indices. Each step validates every supplied context entry.
 
-Optional novelty adds `beta * gate * eventStrength * 2^(-age / halfLife)` to the raw
+Optional novelty adds `beta * noveltyGate * eventStrength * 2^(-age / halfLife)` to the raw
 score, saturating the effective score at 1. An event is the latest host-authored
 timestamp/strength pair, resubmitted unchanged while relevant. Re-stamping an old
 event every update continually renews it. Zero strength means absent; positive
 strength requires a timestamp no later than `now`, even when beta is zero.
+
+`eventDirectionality` controls novelty's angular gate independently of raw preference
+scoring: `1` preserves current gating, `0` makes novelty independent of angle, and
+intermediate values interpolate linearly:
+
+```text
+noveltyAngleGate = 1 - eventDirectionality * (1 - angleGate)
+noveltyGate = distanceGate * noveltyAngleGate * perceptionStrength
+```
+
+Distance gating and perception strength still apply. At directionality `1`, scoring
+reuses the existing rounded `CandidateTrace::gate` exactly; otherwise it rounds the
+new gate once for both scoring and `CandidateTrace::noveltyGate`. Directionality must
+be finite and within `[0,1]`, including when event strength or beta is zero; invalid
+values reject the candidate as `InvalidEvent` at the existing event-validation stage.
+Raw scoring and temporal policy are unchanged. The host still controls perception
+strength, event generation and candidate range.
 
 Selection acquires at or above `acquireThreshold`. An eligible incumbent is protected by
 the release threshold, positive switch margin and optional minimum dwell. A large
@@ -266,9 +290,10 @@ must be budgeted separately.
 
 ## Limits and stability
 
-- Spatial gates also attenuate novelty. An important event behind the observer or
-  beyond a Point cutoff may receive little or no score; the kernel has no urgency
-  bypass or semantic understanding of importance.
+- By default spatial gates also attenuate novelty. Lower event directionality can
+  let behind events contribute novelty without changing their raw preference score.
+  Distance cutoff and zero-perception rejection still apply; the kernel has no
+  semantic understanding of importance.
 - Score saturation can hide a challenger's unsaturated advantage. Positive margins
   can retain a target after novelty fades. Thresholds, weights, beta, half-life and
   update cadence need host-specific tuning; defaults are not a gameplay policy.
