@@ -466,10 +466,12 @@ void DirectionalityGatesOnlyNovelty()
                 const auto& e = *h.Find(1);
                 const double distance = kind == interest::SpatialKind::Point ? 0.5 : 1.0;
                 const double angle = kind == interest::SpatialKind::NonSpatial || sign > 0 ? 1.0 : 0.25;
-                CHECK(e.distanceGate == distance && e.angleGate == angle);
-                CHECK(e.noveltyGate == distance * (1.0 - d * (1.0 - angle)) * 0.5);
-                CHECK(e.gate == distance * angle * 0.5);
-                CHECK(e.rawScore == distance * angle * 0.5 * 0.25);
+                CHECK(static_cast<double>(e.distanceGate) == distance &&
+                      static_cast<double>(e.angleGate) == angle);
+                CHECK(static_cast<double>(e.noveltyGate) ==
+                      distance * (1.0 - static_cast<double>(d) * (1.0 - angle)) * 0.5);
+                CHECK(static_cast<double>(e.gate) == distance * angle * 0.5);
+                CHECK(static_cast<double>(e.rawScore) == distance * angle * 0.5 * 0.25);
                 CHECK(e.noveltyGate <= previousGate);
                 CHECK(previousRaw < 0 || e.rawScore == previousRaw);
                 CHECK(e.eventNovelty == 0.5);
@@ -508,7 +510,8 @@ void DefaultPreservesLegacyRoundedGate()
     test::Random rng(0xD120010);
     int differentRounding = 0;
     for (int i = 0; i < 1000; ++i) {
-        auto c = Event(test::PointAt(1, 10.0 + 8.0 * rng.Unit(), rng.Unit(),
+        auto c = Event(test::PointAt(1, 10.0 + 8.0 * static_cast<double>(rng.Unit()),
+                                     static_cast<double>(rng.Unit()),
                                      rng.Unit(), rng.Unit()), 0, rng.Unit());
         c.perceptionStrength = 0.1f + 0.9f * rng.Unit();
         CHECK(c.eventDirectionality == 1.f);
