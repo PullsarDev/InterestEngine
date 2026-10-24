@@ -240,3 +240,80 @@ covered by the prepared allocation regression and correctness suites. An
 independent 4,000-frame × 40-candidate Release replay against v0.1.0 also produces
 identical binary serialization of every decision, observer-memory field and
 pre-existing trace field at default directionality.
+
+## Trace layout cleanup
+
+`noveltyGate` is placed at offset 76, between `eventStrength` and `eventNovelty`.
+Local probes compiled the v0.1.0 header, pre-cleanup PR header (`c3ed2d7`) and compact
+header: their trace sizes were 96 / 104 / 96 bytes, with all 17 legacy field offsets
+identical. The regression now checks every legacy offset, the new offset, size and
+alignment on x64. No packing directives, allocation changes or scoring changes are
+involved. A trace buffer for 500 candidates returns from 52,000 to 48,000 bytes.
+
+Verified layouts (bytes; MSVC locally and in CI, GCC/Clang through the CI matrix):
+
+| Compiler / target | Size | Alignment | eventStrength | noveltyGate | eventNovelty | noveltyContribution |
+|---|---:|---:|---:|---:|---:|---:|
+| MSVC 19.38.33145 / Windows x64 | 96 | 8 | 72 | 76 | 80 | 88 |
+| MSVC 19.51.36260 / Windows x64 (CI) | 96 | 8 | 72 | 76 | 80 | 88 |
+| GCC 13.3.0 / Linux x86-64 | 96 | 8 | 72 | 76 | 80 | 88 |
+| Clang 18.1.3 / Linux x86-64 | 96 | 8 | 72 | 76 | 80 | 88 |
+
+An independent 4,000-frame × 40-candidate replay matches every serialized decision,
+observer-memory field and trace field, including `noveltyGate`, against the
+pre-cleanup PR. It covers directionality 0, .25, .5, .75 and 1, invalid directionality,
+beta zero and absent events. A separate default-directionality replay still matches
+all pre-existing fields against v0.1.0 exactly. Padding bytes are excluded from
+comparisons because they are not diagnostic values.
+
+Focused Release comparison on 2026-10-24: pre-cleanup PR `c3ed2d7` (104-byte trace)
+versus layout cleanup `5eeb858` (96-byte trace), using MSVC 19.38.33145 x64, the same
+Release flags, Windows desktop and High Performance power policy as above. Each
+revision ran the unchanged 44-configuration harness and four reference variants
+in three processes with `--runs 5 --cycles 64`. Process order was before/compact,
+compact/before, before/compact. No compiler builds ran during timing. Default
+inputs and scoring code were unchanged. The tables focus on mixed workloads and
+reference variants. Single-observer values use the median of process batch medians;
+reference values use the median of process aggregate times, as above.
+
+Batch nanoseconds per Step:
+
+| Configuration | Candidates | Before (104 bytes) | Compact (96 bytes) | Change |
+|---|---:|---:|---:|---:|
+| mixed/core | 100 | 6434.1 | 6517.7 | +1.3% |
+| mixed/core | 500 | 33752.3 | 33807.4 | +0.2% |
+| mixed/core+trace | 100 | 6789.2 | 6783.8 | -0.1% |
+| mixed/core+trace | 500 | 36225.8 | 34875.5 | -3.7% |
+| mixed/novelty | 100 | 6575.2 | 6448.0 | -1.9% |
+| mixed/novelty | 500 | 35057.9 | 33783.9 | -3.6% |
+| mixed/novelty+trace | 100 | 6876.9 | 6806.2 | -1.0% |
+| mixed/novelty+trace | 500 | 35722.1 | 35414.8 | -0.9% |
+
+Reference kernel milliseconds per simulated second:
+
+| Configuration | Before (104 bytes) | Compact (96 bytes) | Change |
+|---|---:|---:|---:|
+| ref/core | 22.588 | 22.371 | -1.0% |
+| ref/core,shared-order | 14.773 | 14.784 | +0.1% |
+| ref/novelty | 22.299 | 23.295 | +4.5% |
+| ref/novelty+trace | 23.139 | 23.423 | +1.2% |
+
+Across all nonempty single-observer configurations, measured batch changes range
+from -3.7% to +1.6%; reference variants range from -1.0% to +4.5%. The observed
++4.5% reference-novelty regression is retained in the results. Run ranges overlap
+and desktop scheduling noise is substantial, so these measurements do not establish
+a general execution-speed improvement or isolate a layout-caused regression.
+The confirmed benefit is the 4,000-byte reduction in 500-entry trace storage.
+
+For mixed/core+trace at 500 candidates, process batch medians are
+36,225.8 / 35,355.4 / 39,251.5 ns before and
+34,849.4 / 35,240.8 / 34,875.5 ns compact. Per-call p99 ranges are 47.6–59.4 and
+48.4–53.8 microseconds respectively. Reference-novelty aggregate process values
+span 22.183–24.335 ms before and 22.380–24.347 ms compact per simulated second.
+The largest individual single-observer samples across all configurations/processes
+are 2.2141 ms before and 3.8266 ms compact. These tails do not imply a latency bound.
+
+All six processes pass status, pairing, replay, trace-on/off and allocation checks,
+with zero allocations in 1,802,240 measured single-observer calls and 200,000
+reference calls per process. The dedicated prepared allocation test also remains
+at zero across 404 calls, including nondefault directionality and rejection paths.
