@@ -13,20 +13,14 @@ engine dependency, scene query, object binding, action planner, gaze controller,
 animation system, learning model or network service.
 
 **Version 0.2.0:** configurable event novelty directionality, independent of raw
-preference scoring. The default directionality of `1.f` preserves legacy numerical
-behavior. API, ABI and tuning compatibility may change before 1.0; there is no
-serialized-state format or cross-platform bit-exact simulation guarantee.
+preference scoring. `CandidateSnapshot::eventDirectionality{1.f}` preserves the
+legacy numerical path by default, while `CandidateTrace::noveltyGate` exposes
+the novelty gate used for scoring.
 
-This version adds an optional trailing
-`float CandidateSnapshot::eventDirectionality{1.f}` and
-`float CandidateTrace::noveltyGate` after `eventStrength`. The trace field occupies
-existing padding on tested x64 compilers, preserving its 96-byte size and all
-pre-existing field offsets. These change public struct layouts; rebuild
-consumers with matching headers and library. Existing aggregate initializers may
-omit the new snapshot field and retain legacy behavior.
-
-Use named fields for trace access; positional `CandidateTrace` aggregate initializers
-must account for the inserted field before `eventNovelty`.
+Public structs changed in this release; rebuild consumers with matching headers
+and library. See the [v0.2.0 release notes](https://github.com/PullsarDev/InterestEngine/releases/tag/v0.2.0)
+for upgrade and layout details. API, ABI and tuning compatibility may change before
+1.0; there is no serialized-state format or cross-platform bit-exact simulation guarantee.
 
 ## Engineering characteristics
 
@@ -302,6 +296,10 @@ must be budgeted separately.
 - Score saturation can hide a challenger's unsaturated advantage. Positive margins
   can retain a target after novelty fades. Thresholds, weights, beta, half-life and
   update cadence need host-specific tuning; defaults are not a gameplay policy.
+- After a transient event changes focus, the kernel does not automatically restore
+  the previous target. Once dwell protection ends, if the event-selected target
+  falls below `releaseThreshold` and no challenger meets `acquireThreshold`,
+  the decision is `Clear` — even if the old target was previously held by hysteresis.
 - Work scales with submitted candidates and contexts. ID sorting and searches,
   geometry, event math and optional trace writes have workload-dependent cost.
   There is no real-time deadline or frame-budget guarantee.

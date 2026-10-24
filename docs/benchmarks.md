@@ -1,16 +1,16 @@
 # Step benchmark
 
-This report compares the published v0.1.0 kernel with the proposed v0.2.0 candidate
+This report compares the published v0.1.0 kernel with the released v0.2.0 Step implementation
 on existing workloads at default event directionality. It measures production
 `Step()` calls, excluding host perception, scene traversal, snapshot gathering and
 copying, animation and rendering. Results are observations on one desktop, not a
 frame-budget guarantee or a comparison with other attention-selection systems.
 
-Across all nonempty single-observer configurations, the candidate's measured batch
+Across all nonempty single-observer configurations, the v0.2.0 implementation's measured batch
 medians are **0.8–3.8% higher** than v0.1.0. Reference medians are **1.0–2.0% higher**.
 These are measured compatibility regressions; no performance improvement is claimed.
 Both kernels use 96-byte traces on x64. Process ranges and latency tails below retain
-all observations, including a large candidate reference-workload spike.
+all observations, including a large v0.2.0 reference-workload spike.
 
 ## Revisions and environment
 
@@ -20,7 +20,7 @@ compiler settings; the benchmark harness is byte-identical between them.
 | Item | Configuration |
 |---|---|
 | Release | `v0.1.0`, commit `f89159b296149b0c0552c132fa2528643976316c` |
-| Candidate kernel | `7b35d483ffc4d28c1a3792815a0ab1c4c3282a00` |
+| v0.2.0 implementation | `v0.2.0` (pre-release implementation measured; see note below) |
 | CPU | AMD Ryzen 7 5700X, 8 cores / 16 logical processors |
 | Memory / OS | 32 GiB RAM; Windows 11 Pro 10.0.26200 |
 | Power / scheduling | AMD Ryzen High Performance; normal priority; logical CPU 2 only, affinity mask `0x4` |
@@ -29,13 +29,24 @@ compiler settings; the benchmark harness is byte-identical between them.
 | Flags | `/O2 /Ob2 /DNDEBUG`, warnings as errors; no LTO/IPO or fast-math |
 | Background load | Ordinary desktop applications; no concurrent compiler builds or benchmark processes; no frequency lock |
 
+**Measurement provenance:** The reported v0.2.0 timings were collected from the
+final pre-release Step implementation, not from a build of the published tag itself.
+The published `v0.2.0` tag has byte-identical `src/step.cpp`,
+`include/interest/attention.hpp` and `benchmarks/step_benchmark.cpp` files.
+The subsequent release preparation changed version metadata and documentation.
+These are measurements of the same Step implementation and benchmark workload;
+they must not be read as newly collected timings from the exact release-tag build.
+For a publicly reproducible source comparison, check out `v0.1.0` and `v0.2.0`
+and rerun the harness; observed timings may vary.
+
 Affinity was applied immediately after launching each process, before the Step
 workload measurements. It reduces migration but does not prevent other processes
 from sharing the same logical CPU.
 
 ## Reproduce
 
-Check out each measured revision separately and configure both with the same tools:
+To reproduce with public release tags, check out `v0.1.0` and `v0.2.0` separately
+and configure both with the same tools:
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
@@ -44,8 +55,8 @@ cmake --build build --config Release --parallel 2
 ctest --test-dir build -C Release --output-on-failure --no-tests=error
 ```
 
-Run each executable three times, sequentially, using release/candidate,
-candidate/release, release/candidate order. Each invocation uses `--runs 5 --cycles 128`.
+Run each executable three times, sequentially, using v0.1.0/v0.2.0,
+v0.2.0/v0.1.0, v0.1.0/v0.2.0 order. Each invocation uses `--runs 5 --cycles 128`.
 For the Windows affinity setting used here, use a distinct output file per process:
 
 ```powershell
@@ -65,7 +76,7 @@ load, power policy or frequency controls when reproducing these measurements.
 
 ## Workloads and statistics
 
-All candidate inputs use default `eventDirectionality == 1`. This compares
+All measured v0.2.0 inputs use default `eventDirectionality == 1`. This compares
 compatibility overhead on existing workloads; timings for nondefault directionality
 are not characterized. Event directionality modifies novelty, not raw preference
 scoring. The host still controls perception strength, event generation and candidate
@@ -106,7 +117,7 @@ these samples. Ranges describe observed variability, not confidence intervals.
 
 Batch nanoseconds per Step, median [process range]:
 
-| Configuration | Candidates | v0.1.0 | Final candidate | Change |
+| Configuration | Candidates | v0.1.0 | v0.2.0 implementation | Change |
 |---|---:|---:|---:|---:|
 | churn/core | 100 | 7849.1 [7812.5–8416.1] | 7985.4 [7920.7–8001.4] | +1.7% |
 | churn/core | 500 | 45896.4 [45658.1–46024.1] | 46351.5 [46169.4–46528.0] | +1.0% |
@@ -158,7 +169,7 @@ Batch nanoseconds per Step, median [process range]:
 
 Kernel milliseconds per simulated second, median [process range]:
 
-| Configuration | v0.1.0 | Final candidate | Change |
+| Configuration | v0.1.0 | v0.2.0 implementation | Change |
 |---|---:|---:|---:|
 | ref/core | 21.176 [21.085–21.358] | 21.394 [21.357–29.844] | +1.0% |
 | ref/core,shared-order | 14.084 [14.082–14.174] | 14.362 [14.346–16.420] | +2.0% |
@@ -170,7 +181,7 @@ Kernel milliseconds per simulated second, median [process range]:
 
 Per-call p99 ranges across the three processes, microseconds, at 500 mixed candidates:
 
-| Configuration | v0.1.0 p99 range | Candidate p99 range |
+| Configuration | v0.1.0 p99 range | v0.2.0 p99 range |
 |---|---:|---:|
 | mixed/core | 38.8–50.5 | 39.1–50.8 |
 | mixed/core+trace | 40.5–51.5 | 39.0–48.7 |
@@ -180,7 +191,7 @@ Per-call p99 ranges across the three processes, microseconds, at 500 mixed candi
 
 Reference synchronous 100-observer tick p99 ranges across processes, milliseconds:
 
-| Configuration | v0.1.0 tick p99 range | Candidate tick p99 range |
+| Configuration | v0.1.0 tick p99 range | v0.2.0 tick p99 range |
 |---|---:|---:|
 | ref/core | 4.329–6.199 | 4.537–18.493 |
 | ref/core,shared-order | 3.045–3.399 | 3.087–5.760 |
@@ -191,11 +202,11 @@ Reference synchronous 100-observer tick p99 ranges across processes, millisecond
 The observed timer granularity was 100 ns; empty timed regions averaged 18.9–19.1 ns.
 Batch measurements are more useful than per-call timers at small candidate counts.
 The largest individual single-observer samples were 2.3073 ms for v0.1.0 and
-2.5486 ms for the candidate. They are retained as observations, not latency bounds.
+2.5486 ms for the v0.2.0 implementation. They are retained as observations, not latency bounds.
 
-All three candidate reference-core process totals were 21.394 / 29.844 / 21.357 ms
+All three v0.2.0 reference-core process totals were 21.394 / 29.844 / 21.357 ms
 per simulated second; release totals were 21.176 / 21.085 / 21.358 ms. The middle
-candidate process also had a synchronous-tick p99 of 18.493 ms. Its samples are
+v0.2.0 process also had a synchronous-tick p99 of 18.493 ms. Its samples are
 included in the ranges and percentiles. No profiler attribution was performed;
 affinity and repeated processes do not eliminate desktop interference. The medians
 therefore do not describe worst-case latency or establish a fixed overhead budget.
@@ -203,7 +214,7 @@ therefore do not describe worst-case latency or establish a fixed overhead budge
 ## Memory and numerical compatibility
 
 Both measured kernels have a 96-byte `CandidateTrace` on the tested x64 builds.
-In the candidate, `noveltyGate` occupies four bytes of existing alignment padding
+In v0.2.0, `noveltyGate` occupies four bytes of existing alignment padding
 after `eventStrength`. All 17 v0.1.0 trace field offsets remain unchanged; no packing
 directives are used. Source consumers should rebuild with matching headers/library,
 and positional trace aggregate initializers must account for the inserted member.
