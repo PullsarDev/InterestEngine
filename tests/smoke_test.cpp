@@ -69,7 +69,7 @@ void CheckTraceLayout()
 
 int main()
 {
-    Expect(std::strcmp(interest::VersionString(), "0.1.0") == 0,
+    Expect(std::strcmp(interest::VersionString(), "0.2.0") == 0,
            "VersionString() returns the library version");
 
     Expect(__cplusplus >= 202002L, "compiled as C++20 or later");

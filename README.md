@@ -12,18 +12,18 @@ snapshots, then resolves the chosen ID into gameplay or presentation. There is n
 engine dependency, scene query, object binding, action planner, gaze controller,
 animation system, learning model or network service.
 
-**Version 0.1.0:** an early source library with substantive synthetic regression
-coverage. API, ABI and tuning compatibility may change before 1.0; there is no
+**Version 0.2.0:** configurable event novelty directionality, independent of raw
+preference scoring. The default directionality of `1.f` preserves legacy numerical
+behavior. API, ABI and tuning compatibility may change before 1.0; there is no
 serialized-state format or cross-platform bit-exact simulation guarantee.
 
-**Next release candidate: v0.2.0.** Event directionality adds an optional trailing
+This version adds an optional trailing
 `float CandidateSnapshot::eventDirectionality{1.f}` and
 `float CandidateTrace::noveltyGate` after `eventStrength`. The trace field occupies
 existing padding on tested x64 compilers, preserving its 96-byte size and all
 pre-existing field offsets. These change public struct layouts; rebuild
 consumers with matching headers and library. Existing aggregate initializers may
-omit the new snapshot field and retain legacy behavior. The release version stays
-0.1.0 until a release is approved.
+omit the new snapshot field and retain legacy behavior.
 
 Use named fields for trace access; positional `CandidateTrace` aggregate initializers
 must account for the inserted field before `eventNovelty`.
