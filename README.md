@@ -22,6 +22,19 @@ and library. See the [v0.2.0 release notes](https://github.com/PullsarDev/Intere
 for upgrade and layout details. API, ABI and tuning compatibility may change before
 1.0; there is no serialized-state format or cross-platform bit-exact simulation guarantee.
 
+## Unreal Engine adapter and showcase
+
+The kernel has no engine dependency. These links lead to a native Unreal Engine 5.8
+adapter that vendors this kernel unchanged, and to a showcase built on it.
+
+- [Interest Engine for Unreal](https://github.com/PullsarDev/InterestEngineUnreal): the
+  adapter (Win64, beta). It does not change the kernel's scoring or temporal policy;
+  its own validation is documented in that repository.
+- [Case study](https://pullsar.dev/interestengine/): the showcase scene, its decisions
+  and their explanations.
+- Videos: [Showcase](https://youtu.be/vyQdQM-6HEQ) and
+  [Policy comparison](https://youtu.be/xISksvDQSik).
+
 ## Engineering characteristics
 
 - Standard-library-only production C++20; two implementation files and two headers.
